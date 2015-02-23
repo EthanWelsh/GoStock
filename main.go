@@ -38,10 +38,7 @@ func main() {
 		b[i].Y = float64(arr[i].close)
 	}
 
-	displayPlot("GOOG Open Close Chart", a, b)
-	
-	//printTable(arr)
-	
+	displayPlot("GOOG Open Close Chart 2014", a, b)
 	
 }
 
