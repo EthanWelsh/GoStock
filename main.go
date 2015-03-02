@@ -9,6 +9,7 @@ import (
 	"code.google.com/p/plotinum/plot"
 	"code.google.com/p/plotinum/plotter"
 	"code.google.com/p/plotinum/plotutil"
+	"math"
 )
 
 func main() {
@@ -24,23 +25,113 @@ func main() {
 	to.month = 1
 	to.year = 2015
 
-	arr := getStockInfo("GOOG", from, to)
+/*	
+    goog := getOpenPoints("GOOG", from, to)
+	uhs := getOpenPoints("UHS", from, to)
+	aapl := getOpenPoints("AAPL", from, to)
+		
+	displayPlot("Google & USH", goog, uhs, aapl)*
 
-	a := make(plotter.XYs, len(arr))
-	for i := range a {
-		a[i].X = float64(i)
-		a[i].Y = float64(arr[i].open)
+	goog := getPattern("goog", from, to, 4)
+
+	fmt.Printf("%d %d\n", len(goog), len(goog[0]))
+
+	for i := range goog {
+		for j := range goog[0] {
+			fmt.Printf("%f\t ", goog[i][j])
+		}
+		fmt.Println()
 	}
+*/
 
-	b := make(plotter.XYs, len(arr))
-	for i := range b {
-		b[i].X = float64(i)
-		b[i].Y = float64(arr[i].close)
-	}
+	sym := []string{"UHS", "GOOG", "AAPL"}
+	getPatterns(sym, from, to, 10)
 
-	displayPlot("GOOG Open Close Chart 2014", a, b)
+	
 	
 }
+
+func getPatterns(symbol []string, from date, to date, patternSize int) [][]float32 {
+
+	patternArrays := make([][][]float32, len(symbol))
+
+	numberOfTotalPatterns := 0
+	
+	for i := range symbol {
+		patternArrays[i] = getPattern(symbol[i], from, to, patternSize)
+		numberOfTotalPatterns += len(patternArrays[i])
+	}
+
+	ret := make([][]float32, numberOfTotalPatterns)
+
+	index := 0
+	
+	for stock := range patternArrays {
+		for _, pat := range patternArrays[stock] {
+			ret[index] = pat
+			index++
+		}
+	}
+
+	fmt.Printf("%d %d", len(ret), numberOfTotalPatterns)
+
+	return ret
+	
+
+	
+}
+
+func getPattern(symbol string, from date, to date, patternSize int) [][]float32 {
+
+
+	data := getPercentChangeData(symbol, from, to)
+	
+	pattern := make([][]float32, len(data) - (patternSize - 1))
+	
+	for i := range pattern {
+
+		pattern[i] = make([]float32, patternSize)		
+	}
+
+	index := 0
+	
+	for i := range pattern {
+		for j := 0; j < patternSize; j++ {
+			pattern[i][j] = data[index + j]
+		}
+		index++
+	}
+
+	return pattern
+}
+
+func getPercentChangeData(symbol string, from date, to date) []float32 {
+
+	arr := getStockInfo(symbol, from, to)
+	a := make([]float32, len(arr))
+	for i := range a {
+		a[i] = arr[i].open
+	}
+	
+	return toPercentChangeArray(a)	
+}
+
+func getOpenPoints(symbol string, from date, to date) plotter.XYs {
+	pct := getPercentChangeData(symbol, from, to)
+	points := getXYs(pct)
+	return points
+}
+
+
+func getXYs(a []float32) plotter.XYs {
+	points := make(plotter.XYs, len(a))
+	for i := range a {
+		points[i].X = float64(i)
+		points[i].Y = float64(a[i])
+	}
+	return points
+}
+
 
 func getStockInfo(symbol string, from date, to date) []record {
 	url := fmt.Sprintf("http://ichart.finance.yahoo.com/table.csv?s=%s&a=%d&b=%d&c=%d&d=%d&e=%d&f=%d&g=d",
@@ -95,6 +186,24 @@ func getStockInfo(symbol string, from date, to date) []record {
 	return ret
 }
 
+
+func toPercentChangeArray(a []float32) (ret []float32) {
+
+	ret = make([]float32, len(a))
+
+	for i:=0; i < len(a) - 1; i++ {
+		ret[i] = percentChange(a[i], a[i+1])
+	}
+
+	return
+}
+
+
+func percentChange(old float32, new float32) (ret float32) {
+	return float32(math.Abs(float64(((old-new)/old)*100.0)))
+}
+
+
 func displayPlot(name string, toPlot ...plotter.XYs) {
 	p, err := plot.New()
 	if err != nil {
@@ -119,6 +228,7 @@ func displayPlot(name string, toPlot ...plotter.XYs) {
 	}
 }
 
+
 func getDate(s string) (ret date) {
 
 	a := strings.Split(s, "-")
@@ -135,6 +245,7 @@ func getDate(s string) (ret date) {
 	return
 }
 
+
 func printTable(arr []record) {
 	fmt.Println("Date \t\t Open \t\t High \t\t Low \t\t Close \t\t Volume \t adjClose")
 	for i:=0; i < len(arr); i++ {
@@ -150,9 +261,14 @@ type date struct {
 	year int
 }
 
+
 func (d date) String() string {
 	return fmt.Sprintf("%d/%d/%d", d.day, d.month, d.year)
 }
+
+
+//*****************************************************************************************//
+
 
 type record struct {
 
@@ -164,6 +280,7 @@ type record struct {
 	volume uint32
 	adjClose float32
 }
+
 
 func (r record) String() string {
 
